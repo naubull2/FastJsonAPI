@@ -6,13 +6,27 @@ __author__ = 'naubull2 (naubull2@gmail.com)'
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel  # , validator
+from pydantic import BaseModel, validator
 from pydantic import StrictInt  # , constr
 
 
 class SortMethod(str, Enum):
     merge = "merge"
     stalin = "stalin"
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if not isinstance(v, str):
+            raise TypeError("str type expected")
+        if v not in cls.__members__:
+            raise ValueError(
+                "permitted values: '{}'".format("', '".join(cls.__members__))
+            )
+        return v
 
 
 class SortPayload(BaseModel):
