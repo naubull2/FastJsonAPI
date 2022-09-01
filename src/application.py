@@ -6,7 +6,7 @@ __author__ = 'naubull2 (naubull2@gmail.com)'
 import json
 from typing import Callable, Dict, List, Optional, Sequence, Type, Union
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from starlette.middleware import Middleware
@@ -70,6 +70,17 @@ class JSONRoute(APIRoute):
         return custom_route_handler
 
 
+def assert_content_type(content_type: str = Header(...)):
+    """
+    Assert request header to be in application/json only
+    """
+    if content_type != "application/json":
+        raise HTTPException(
+            status_code=415,
+            detail="UNSUPPORTED_MEDIA_TYPE:Content-type or the body is not a valid 'application/json'"
+        )
+
+
 async def catch_exceptions_middleware(request: Request, call_next):
     try:
         return await call_next(request)
@@ -131,19 +142,6 @@ async def request_validation_exception_handler(
     err = exc.errors()[0]
     fields = ".".join([loc for loc in err["loc"] if loc != "payload"])
 
-    # NOTE: Customize your own error format
-    content_type = request.headers.get("content-type")
-    if isinstance(content_type, str) and content_type.lower() != "application/json":
-        # content-type errors: boundary info is concat to the content-type value.
-        # https://www.w3.org/Protocols/rfc1341/7_2_Multipart.html
-        return JSONResponse(
-            status_code=406,
-            content={
-                "code": "NOT_ACCEPTABLE",
-                "message": "Either content-type or the body is not in a valid 'application/json' form.",
-            },
-        )
-
     # Error due to the data body itself are 400
     status = 400
     code = "BAD_REQUEST"
@@ -202,6 +200,7 @@ def FastJsonAPI(
         default_response_class=default_response_class,
         middleware=middleware,
         exception_handlers=exception_handlers,
+        dependencies=[Depends(assert_content_type)],
         on_startup=on_startup,
         on_shutdown=on_shutdown,
     )
